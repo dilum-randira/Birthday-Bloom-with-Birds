@@ -10,6 +10,7 @@ This project was designed as a unique and personalized birthday surprise.
 
 View the live project here:  
 🔗 https://dilum-randira.github.io/Birthday-Bloom-with-Birds/
+![Recording 2025-12-22 194248 (1)](https://github.com/user-attachments/assets/24259646-20fb-401d-948e-3b0ff0462692)
 
 ---
 
