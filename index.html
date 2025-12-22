@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Birthday Bloom for Dilum</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600&family=Inter:wght@300;400&display=swap');
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #050505;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        #quote-container {
+            position: absolute;
+            left: 5%;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 300px;
+            color: #ffb3c1;
+            font-family: 'Inter', sans-serif;
+            font-size: 1.1rem;
+            line-height: 1.8;
+            pointer-events: none;
+        }
+
+        .quote-line {
+            margin-bottom: 20px;
+            min-height: 1.5em;
+        }
+
+        .cursor {
+            display: inline-block;
+            width: 2px;
+            height: 1em;
+            background-color: #ff4d6d;
+            margin-left: 2px;
+            animation: blink 1s infinite;
+            vertical-align: middle;
+        }
+
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+
+        #start-screen {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.95);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            transition: opacity 1s ease;
+        }
+
+        .start-btn {
+            background: linear-gradient(45deg, #ff4d6d, #c9184a);
+            color: white;
+            padding: 16px 32px;
+            border-radius: 50px;
+            font-family: 'Inter', sans-serif;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 0 30px rgba(255, 77, 109, 0.4);
+            pointer-events: auto;
+            transition: transform 0.2s;
+        }
+
+        .start-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .special-font {
+            font-family: 'Dancing Script', cursive;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="start-screen">
+        <button id="start-btn" class="start-btn">Open Your Birthday Surprise</button>
+    </div>
+
+    <div id="ui-overlay">
+        <div id="quote-container">
+            <div id="quote-content"></div>
+        </div>
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const startBtn = document.getElementById('start-btn');
+        const startScreen = document.getElementById('start-screen');
+        const quoteContent = document.getElementById('quote-content');
+
+        let width, height;
+        let branches = [];
+        let hearts = [];
+        let birds = [];
+        
+        const quotes = [
+            "Every bloom is a wish for you...",
+            "Growing stronger with every moment.",
+            "You make the world more beautiful.",
+            "Happy Birthday, Dilum! ❤️"
+        ];
+
+        function init() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+        }
+
+        window.addEventListener('resize', init);
+        init();
+
+        /**
+         * Simple typewriter effect for the message
+         */
+        async function typeWriter(text, element) {
+            const line = document.createElement('div');
+            line.className = 'quote-line';
+            element.appendChild(line);
+            
+            const cursor = document.createElement('span');
+            cursor.className = 'cursor';
+            line.appendChild(cursor);
+
+            for (let i = 0; i < text.length; i++) {
+                const char = document.createTextNode(text.charAt(i));
+                line.insertBefore(char, cursor);
+                await new Promise(r => setTimeout(r, 70));
+            }
+            
+            cursor.remove();
+            await new Promise(r => setTimeout(r, 1000));
+        }
+
+        async function startTyping() {
+            for (const quote of quotes) {
+                await typeWriter(quote, quoteContent);
+            }
+        }
+
+        /**
+         * Branch class handles the recursive growth of the tree
+         */
+        class Branch {
+            constructor(startX, startY, length, angle, width, level) {
+                this.startX = startX;
+                this.startY = startY;
+                this.length = length;
+                this.angle = angle;
+                this.width = width;
+                this.level = level;
+                this.currentLength = 0;
+                this.growthSpeed = 2 / (level + 1) + 1.2; 
+                this.endX = startX + Math.sin(angle) * length;
+                this.endY = startY - Math.cos(angle) * length;
+                this.finished = false;
+                this.childrenCreated = false;
+                this.isPerch = false; // New flag to identify a branch for birds
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.moveTo(this.startX, this.startY);
+                const curX = this.startX + Math.sin(this.angle) * this.currentLength;
+                const curY = this.startY - Math.cos(this.angle) * this.currentLength;
+                ctx.lineTo(curX, curY);
+                ctx.strokeStyle = `rgba(100, 70, 60, ${1 - this.level * 0.1})`;
+                ctx.lineWidth = this.width;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+
+                if (this.currentLength < this.length) {
+                    this.currentLength += this.growthSpeed;
+                } else {
+                    this.finished = true;
+                }
+            }
+        }
+
+        /**
+         * Heart class for the 'leaves' of the tree
+         */
+        class Heart {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.size = 0;
+                this.maxSize = 2 + Math.random() * 6;
+                this.growthSpeed = 0.04 + Math.random() * 0.08;
+                this.color = ['#ff4d6d', '#ff758f', '#ffb3c1', '#c9184a', '#ff8fa3'][Math.floor(Math.random() * 5)];
+                this.opacity = 0;
+            }
+
+            draw() {
+                if (this.size < this.maxSize) {
+                    this.size += this.growthSpeed;
+                    this.opacity = Math.min(1, this.opacity + 0.015);
+                }
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(Math.PI);
+                ctx.scale(this.size / 10, this.size / 10);
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = this.opacity;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.bezierCurveTo(-5, -5, -10, 5, 0, 12);
+                ctx.bezierCurveTo(10, 5, 5, -5, 0, 0);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        /**
+         * Bird class that flies to a specific branch and perches
+         */
+        class Bird {
+            constructor(side) {
+                this.startX = side === 'left' ? -50 : width + 50;
+                this.startY = Math.random() * (height / 2);
+                this.x = this.startX;
+                this.y = this.startY;
+                this.targetX = 0;
+                this.targetY = 0;
+                this.angle = 0;
+                this.wingFlap = 0;
+                this.speed = 2 + Math.random() * 2;
+                this.isSitting = false;
+                this.targetBranch = null;
+                this.color = side === 'left' ? '#ff99ac' : '#ffccd5';
+                this.size = 6 + Math.random() * 4;
+            }
+
+            assignTarget(branch) {
+                this.targetBranch = branch;
+                this.targetX = branch.endX;
+                this.targetY = branch.endY;
+            }
+
+            update() {
+                if (!this.targetBranch) return;
+
+                const dx = this.targetX - this.x;
+                const dy = this.targetY - this.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist > 5) {
+                    this.angle = Math.atan2(dy, dx);
+                    this.x += Math.cos(this.angle) * this.speed;
+                    this.y += Math.sin(this.angle) * this.speed;
+                    this.wingFlap += 0.2;
+                } else {
+                    this.isSitting = true;
+                    this.x = this.targetX;
+                    this.y = this.targetY;
+                }
+            }
+
+            draw() {
+                if (!this.targetBranch) return;
+                
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                
+                // Bird body
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, this.size, this.size * 0.6, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Head
+                const headDir = (this.isSitting) ? -1 : (Math.cos(this.angle) > 0 ? 1 : -1);
+                ctx.beginPath();
+                ctx.arc(this.size * 0.8 * headDir, -this.size * 0.3, this.size * 0.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Beak
+                ctx.fillStyle = '#ffb347';
+                ctx.beginPath();
+                ctx.moveTo(this.size * 1.2 * headDir, -this.size * 0.3);
+                ctx.lineTo(this.size * 1.6 * headDir, -this.size * 0.2);
+                ctx.lineTo(this.size * 1.2 * headDir, -this.size * 0.1);
+                ctx.fill();
+
+                // Wings
+                ctx.fillStyle = this.color;
+                if (!this.isSitting) {
+                    const flap = Math.sin(this.wingFlap) * this.size;
+                    ctx.beginPath();
+                    ctx.ellipse(0, -this.size * 0.2, this.size * 0.8, Math.abs(flap), 0, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    // Folded wing
+                    ctx.beginPath();
+                    ctx.ellipse(-this.size * 0.2, 0, this.size * 0.7, this.size * 0.3, 0.2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.restore();
+            }
+        }
+
+        function spawnChildren(parent) {
+            if (parent.level < 7) {
+                const branchesToCreate = 2;
+                for(let i = 0; i < branchesToCreate; i++) {
+                    const angleOffset = i === 0 ? -0.4 : 0.4;
+                    const randomVariation = (Math.random() - 0.5) * 0.4;
+                    const child = new Branch(
+                        parent.endX, 
+                        parent.endY, 
+                        parent.length * (0.75 + Math.random() * 0.12), 
+                        parent.angle + angleOffset + randomVariation, 
+                        parent.width * 0.72, 
+                        parent.level + 1
+                    );
+                    
+                    // Mark specific branches as perches for birds
+                    if (parent.level === 3 && birds.length < 2) {
+                        child.isPerch = true;
+                        const newBird = new Bird(birds.length === 0 ? 'left' : 'right');
+                        newBird.assignTarget(child);
+                        birds.push(newBird);
+                    }
+                    
+                    branches.push(child);
+                }
+
+                // Only spawn hearts if the branch is NOT a perch to keep it leafless
+                if (parent.level >= 4 && !parent.isPerch) {
+                    const extraLeaves = Math.floor(Math.random() * 4) + 2;
+                    for(let i = 0; i < extraLeaves; i++) {
+                        hearts.push(new Heart(
+                            parent.endX + (Math.random() - 0.5) * 40, 
+                            parent.endY + (Math.random() - 0.5) * 40
+                        ));
+                    }
+                }
+            } else {
+                // For final tips, only bloom if it's not part of the bird's leafless branch path
+                if (!parent.isPerch) {
+                    const finalBloomCount = 10; 
+                    for(let i = 0; i < finalBloomCount; i++) {
+                        hearts.push(new Heart(
+                            parent.endX + (Math.random() - 0.5) * 50, 
+                            parent.endY + (Math.random() - 0.5) * 50
+                        ));
+                    }
+                }
+            }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, width, height);
+            
+            // Draw tree
+            branches.forEach(branch => {
+                branch.draw();
+                if (branch.finished && !branch.childrenCreated) {
+                    branch.childrenCreated = true;
+                    spawnChildren(branch);
+                }
+            });
+
+            // Draw leaves
+            hearts.forEach(heart => heart.draw());
+
+            // Draw birds
+            birds.forEach(bird => {
+                bird.update();
+                bird.draw();
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        startBtn.addEventListener('click', () => {
+            startScreen.style.opacity = '0';
+            setTimeout(() => {
+                startScreen.style.display = 'none';
+                const treeX = width > 800 ? width / 2 + 150 : width / 2;
+                branches.push(new Branch(treeX, height, height * 0.22, 0, 16, 0));
+                animate();
+                startTyping();
+            }, 1000);
+        });
+
+    </script>
+</body>
+</html>
